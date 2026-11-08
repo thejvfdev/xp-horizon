@@ -23,9 +23,11 @@ local DEFAULT_XP_TO_NEXT_LEVEL = {
     153900, 160400, 167100, 173900, 180800, 187900, 195000, 202300, 209800,         -- 51-59
 }
 
--- Art used by Forever's XP bar, so the 1-60 bar looks like the normal one.
+-- Art from Forever's status bars, so the 1-60 bar looks like the normal XP
+-- bar. The fill is the green one the reputation bar uses from Friendly up,
+-- from the same set as the purple XP fill.
 local BAR_BACKGROUND_ATLAS = "UI-HUD-ExperienceBar-Background"
-local BAR_FILL_ATLAS = "UI-HUD-ExperienceBar-Fill-Experience"
+local BAR_FILL_ATLAS = "UI-HUD-ExperienceBar-Fill-Reputation-Faction-Green"
 
 local LABEL_COLOR = { 1, 0.82, 0 }      -- gold
 local VALUE_COLOR = { 1, 1, 1 }         -- white
@@ -188,60 +190,93 @@ end
 
 -- 1-60 bar -------------------------------------------------------------------
 
--- While Shift is held, a copy of the XP bar filled to the 1-60 progress is
--- drawn over Blizzard's bar. Blizzard's own fill and text are never changed,
--- so their animations and updates carry on underneath, and hiding the copy
--- is all it takes to go back.
-local overlays = {} -- XP bar -> its 1-60 copy
+-- While Shift is held, Blizzard's fill, rested-XP marks and text are faded
+-- out, and a status bar with the same background art and a green fill from
+-- the same set is drawn in their place, filled to the 1-60 progress. The
+-- copy sits on the same frame layers as the parts it replaces, so the bar
+-- keeps Blizzard's look, transparency included.
+-- Blizzard's parts are only faded (alpha), nothing else about them changes,
+-- so their own updates carry on underneath and they come back as they were.
+local overlays = {}    -- XP bar -> its 1-60 copy
+local fadedParts = {}  -- XP bar -> { [Blizzard region] = its alpha before fading }
 
-local function HighestFrameLevel(frame)
-    local highest = frame:GetFrameLevel()
-    for _, child in ipairs({ frame:GetChildren() }) do
-        highest = math.max(highest, HighestFrameLevel(child))
+-- The parts of Blizzard's XP bar that the 1-60 copy replaces.
+local function GetBlizzardParts(bar)
+    return {
+        bar.StatusBar,              -- background, fill and XP-gain animations
+        bar.ExhaustionLevelFillBar, -- rested-XP shading ahead of the fill
+        bar.ExhaustionTick,         -- rested-XP marker; still takes the mouse while faded
+        bar.OverlayFrame and bar.OverlayFrame.Text or nil,
+    }
+end
+
+local function FadeBlizzardParts(bar)
+    if fadedParts[bar] then
+        return
     end
-    return highest
+    local saved = {}
+    for _, region in pairs(GetBlizzardParts(bar)) do
+        saved[region] = region:GetAlpha()
+        region:SetAlpha(0)
+    end
+    fadedParts[bar] = saved
+end
+
+local function RestoreBlizzardParts(bar)
+    local saved = fadedParts[bar]
+    if not saved then
+        return
+    end
+    for region, alpha in pairs(saved) do
+        region:SetAlpha(alpha)
+    end
+    fadedParts[bar] = nil
 end
 
 local function CreateOverlay(bar)
-    local frameLevel = HighestFrameLevel(bar) + 1
+    local statusBar = bar.StatusBar
 
-    local overlay = CreateFrame("Frame", nil, bar)
-    -- Blizzard draws the XP text at MEDIUM strata, above the rest of the bar.
-    -- Drawing the copy at MEDIUM and above every part of the bar covers the
-    -- fill, the rested-XP marker and the text.
-    overlay:SetFrameStrata("MEDIUM")
-    overlay:SetFrameLevel(frameLevel)
-    overlay:SetAllPoints(bar.StatusBar or bar)
+    -- Background and fill, on the frame layer of Blizzard's status bar.
+    local overlay = CreateFrame("StatusBar", nil, bar)
+    overlay:SetFrameStrata(statusBar:GetFrameStrata())
+    overlay:SetFrameLevel(statusBar:GetFrameLevel())
+    overlay:SetAllPoints(statusBar)
     overlay:Hide()
-    -- If the bar is hidden while the copy is up, keep the copy hidden when
-    -- the bar comes back.
-    overlay:SetScript("OnHide", overlay.Hide)
+    -- Bring Blizzard's parts back whenever the copy goes away, including when
+    -- the whole bar is hidden while the copy is up. Hiding the copy itself
+    -- there also keeps it hidden when the bar comes back.
+    overlay:SetScript("OnHide", function(self)
+        self:Hide()
+        RestoreBlizzardParts(bar)
+    end)
 
-    -- Opaque base so Blizzard's fill never shows through the background art.
-    local base = overlay:CreateTexture(nil, "BACKGROUND", nil, -8)
-    base:SetAllPoints()
-    base:SetColorTexture(0, 0, 0, 1)
-
-    local background = overlay:CreateTexture(nil, "BACKGROUND", nil, -7)
+    local background = overlay:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
     background:SetAtlas(BAR_BACKGROUND_ATLAS)
 
-    local fill = overlay:CreateTexture(nil, "ARTWORK")
-    fill:SetPoint("TOPLEFT")
-    fill:SetPoint("BOTTOMLEFT")
-    fill:SetAtlas(BAR_FILL_ATLAS)
+    -- Set up the way Blizzard's XP bar sets its fill, so it renders the same.
+    overlay:SetStatusBarTexture(BAR_FILL_ATLAS)
+    overlay:GetStatusBarTexture():SetDrawLayer("BORDER")
 
-    local text = overlay:CreateFontString(nil, "OVERLAY")
+    -- Text, on the frame layer of Blizzard's XP text (MEDIUM strata).
+    local textFrame = CreateFrame("Frame", nil, overlay)
+    textFrame:SetFrameStrata("MEDIUM")
+    textFrame:SetFrameLevel((bar.OverlayFrame or bar):GetFrameLevel() + 1)
+    textFrame:SetAllPoints(bar)
+
+    local text = textFrame:CreateFontString(nil, "OVERLAY")
     local blizzardText = bar.OverlayFrame and bar.OverlayFrame.Text
     text:SetFontObject(blizzardText and blizzardText:GetFontObject() or "GameFontHighlightSmall")
     text:SetPoint("CENTER", bar, "CENTER", 0, 1)
 
-    overlay.fill = fill
     overlay.text = text
     return overlay
 end
 
 local function ShowOverlay(bar)
+    if not bar or not bar.StatusBar then
+        return
+    end
     local overlay = overlays[bar]
     if not overlay then
         overlay = CreateOverlay(bar)
@@ -249,21 +284,18 @@ local function ShowOverlay(bar)
     end
 
     local _, earned, total = GetProgress()
+    FadeBlizzardParts(bar)
+    overlay:SetMinMaxValues(0, math.max(total, 1))
+    overlay:SetValue(earned)
     overlay:Show()
-    local fillWidth = total > 0 and overlay:GetWidth() * earned / total or 0
-    if fillWidth >= 1 then
-        overlay.fill:SetWidth(fillWidth)
-        overlay.fill:Show()
-    else
-        overlay.fill:Hide()
-    end
     overlay.text:SetText(("%s to level %d (%s / %s)"):format(
         FormatPercent(earned, total), MAX_LEVEL, BreakUpLargeNumbers(earned), BreakUpLargeNumbers(total)))
 end
 
 local function HideOverlays()
-    for _, overlay in pairs(overlays) do
+    for bar, overlay in pairs(overlays) do
         overlay:Hide()
+        RestoreBlizzardParts(bar) -- In case the copy was never visible, so OnHide did not run.
     end
 end
 
@@ -331,10 +363,6 @@ local function FindXpBars()
                 table.insert(found, bar)
             end
         end
-    end
-    -- Older Classic-style XP bar, in case a UI addon brings it back.
-    if MainMenuExpBar then
-        table.insert(found, MainMenuExpBar)
     end
     return found
 end
