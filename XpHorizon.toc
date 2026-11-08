@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: XP Horizon
+## Notes: Tweaks for the XP bar
+## Author: jvf.dev
+## Version: 1.0.0
+## SavedVariables: XpHorizonDb
+XpHorizon.lua
