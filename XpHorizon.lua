@@ -1,7 +1,8 @@
 -- XP Horizon
 -- Hold Shift while hovering the XP bar to see how much of the total XP from
 -- level 1 to the level cap you have already earned: the bar itself fills to
--- show it, and the tooltip breaks it down.
+-- show it, and the tooltip adds the numbers and an estimate of the /played
+-- time at which you will reach the cap.
 
 local ADDON_NAME = ...
 
@@ -22,20 +23,15 @@ local DEFAULT_XP_TO_NEXT_LEVEL = {
     153900, 160400, 167100, 173900, 180800, 187900, 195000, 202300, 209800,         -- 51-59
 }
 
--- Level ranges in the breakdown. Each one covers the XP from reaching the
--- first level to reaching the second.
-local BRACKETS = {
-    { 1, 10 }, { 10, 20 }, { 20, 30 }, { 30, 40 }, { 40, 50 }, { 50, 60 },
-}
-
 -- Art used by Forever's XP bar, so the 1-60 bar looks like the normal one.
 local BAR_BACKGROUND_ATLAS = "UI-HUD-ExperienceBar-Background"
 local BAR_FILL_ATLAS = "UI-HUD-ExperienceBar-Fill-Experience"
 
-local LABEL_COLOR = { 1, 0.82, 0 }       -- gold
-local VALUE_COLOR = { 1, 1, 1 }          -- white
-local DONE_COLOR = { 0.25, 1, 0.25 }     -- green
-local PENDING_COLOR = { 0.5, 0.5, 0.5 }  -- grey
+local LABEL_COLOR = { 1, 0.82, 0 }      -- gold
+local VALUE_COLOR = { 1, 1, 1 }         -- white
+local MUTED_COLOR = { 0.5, 0.5, 0.5 }   -- grey
+
+-- XP data --------------------------------------------------------------------
 
 local db
 
@@ -91,6 +87,32 @@ local function GetProgress()
     return level, earned, total
 end
 
+-- Played time ----------------------------------------------------------------
+
+-- The client only learns the character's /played by asking the server
+-- (RequestTimePlayed), and the server's answer is also printed in chat. It is
+-- asked for once per session, the first time the 1-60 view opens, and counted
+-- forward locally from then on. Typing /played yourself updates it as well.
+local playedSeconds     -- /played total in the server's last answer
+local playedAnsweredAt  -- GetTime() when that answer arrived
+local playedRequested = false
+
+local function RequestPlayedOnce()
+    if not playedSeconds and not playedRequested then
+        playedRequested = true
+        RequestTimePlayed()
+    end
+end
+
+local function GetPlayedSeconds()
+    if not playedSeconds then
+        return nil
+    end
+    return playedSeconds + (GetTime() - playedAnsweredAt)
+end
+
+-- Formatting -----------------------------------------------------------------
+
 local function FormatPercent(part, whole)
     if whole <= 0 then
         return "0%"
@@ -99,7 +121,20 @@ local function FormatPercent(part, whole)
     return ("%.1f%%"):format(math.floor(part / whole * 1000) / 10)
 end
 
--- Tooltip -------------------------------------------------------------------
+local function FormatDuration(seconds)
+    seconds = math.max(0, math.floor(seconds))
+    local days = math.floor(seconds / 86400)
+    local hours = math.floor(seconds % 86400 / 3600)
+    local minutes = math.floor(seconds % 3600 / 60)
+    if days > 0 then
+        return ("%dd %dh %dm"):format(days, hours, minutes)
+    elseif hours > 0 then
+        return ("%dh %dm"):format(hours, minutes)
+    end
+    return ("%dm"):format(minutes)
+end
+
+-- Tooltip --------------------------------------------------------------------
 
 local function AddRow(tooltip, label, value, valueColor)
     local l, v = LABEL_COLOR, valueColor or VALUE_COLOR
@@ -108,46 +143,50 @@ end
 
 local function ShowHorizonTooltip()
     local level, earned, total = GetProgress()
+    local remaining = total - earned
     local tooltip = GameTooltip
 
-    -- Hiding first also releases the progress bar from an earlier render.
     tooltip:Hide()
     GameTooltip_SetDefaultAnchor(tooltip, UIParent)
 
-    tooltip:AddDoubleLine("XP Horizon", ("Level %d / %d"):format(level, MAX_LEVEL), 1, 1, 1, 1, 1, 1)
-    AddRow(tooltip, "Earned", BreakUpLargeNumbers(earned) .. " / " .. BreakUpLargeNumbers(total))
-    AddRow(tooltip, "Remaining", BreakUpLargeNumbers(total - earned))
-    if GameTooltip_ShowStatusBar then
-        GameTooltip_ShowStatusBar(tooltip, 0, total, earned, FormatPercent(earned, total))
-    else
-        AddRow(tooltip, "Completed", FormatPercent(earned, total))
-    end
+    -- The percentage sits on the title line, next to the addon name.
+    tooltip:AddDoubleLine("XP Horizon",
+        ("|cffffffff%s|r to level %d"):format(FormatPercent(earned, total), MAX_LEVEL),
+        1, 1, 1, LABEL_COLOR[1], LABEL_COLOR[2], LABEL_COLOR[3])
+    AddRow(tooltip, "Level", ("%d / %d"):format(level, MAX_LEVEL))
+    AddRow(tooltip, "XP earned", BreakUpLargeNumbers(earned) .. " / " .. BreakUpLargeNumbers(total))
+    AddRow(tooltip, "XP remaining", BreakUpLargeNumbers(remaining))
 
+    -- Estimate: the character's average XP per second of /played so far,
+    -- applied to the XP still needed.
     tooltip:AddLine(" ")
-    for _, bracket in ipairs(BRACKETS) do
-        local fromLevel, toLevel = bracket[1], bracket[2]
-        local size = XpBetween(fromLevel, toLevel)
-        local earnedInBracket = math.max(0, math.min(earned - XpBetween(1, fromLevel), size))
-        local label = ("Levels %d-%d"):format(fromLevel, toLevel)
-        if earnedInBracket >= size then
-            AddRow(tooltip, label, "Done", DONE_COLOR)
-        elseif earnedInBracket <= 0 then
-            AddRow(tooltip, label, "0%", PENDING_COLOR)
-        else
-            AddRow(tooltip, label, FormatPercent(earnedInBracket, size))
+    local played = GetPlayedSeconds()
+    if not played then
+        AddRow(tooltip, "Time played", "Asking the server...", MUTED_COLOR)
+    else
+        AddRow(tooltip, "Time played", FormatDuration(played))
+        if remaining > 0 then
+            if earned > 0 and played > 0 then
+                local xpPerSecond = earned / played
+                local timeLeft = remaining / xpPerSecond
+                AddRow(tooltip, "XP per hour played", BreakUpLargeNumbers(math.floor(xpPerSecond * 3600)))
+                AddRow(tooltip, ("Est. time to %d"):format(MAX_LEVEL), FormatDuration(timeLeft))
+                AddRow(tooltip, ("Est. time at %d"):format(MAX_LEVEL), FormatDuration(played + timeLeft))
+            else
+                AddRow(tooltip, ("Est. time at %d"):format(MAX_LEVEL), "Not enough data yet", MUTED_COLOR)
+            end
         end
     end
 
     local rested = GetXPExhaustion and GetXPExhaustion()
     if rested and rested > 0 and level < MAX_LEVEL then
-        tooltip:AddLine(" ")
-        AddRow(tooltip, "Rested", BreakUpLargeNumbers(rested))
+        AddRow(tooltip, "Rested XP", BreakUpLargeNumbers(rested))
     end
 
     tooltip:Show()
 end
 
--- 1-60 bar ------------------------------------------------------------------
+-- 1-60 bar -------------------------------------------------------------------
 
 -- While Shift is held, a copy of the XP bar filled to the 1-60 progress is
 -- drawn over Blizzard's bar. Blizzard's own fill and text are never changed,
@@ -218,8 +257,8 @@ local function ShowOverlay(bar)
     else
         overlay.fill:Hide()
     end
-    overlay.text:SetText(("Levels 1-%d: %s / %s (%s)"):format(
-        MAX_LEVEL, BreakUpLargeNumbers(earned), BreakUpLargeNumbers(total), FormatPercent(earned, total)))
+    overlay.text:SetText(("%s to level %d (%s / %s)"):format(
+        FormatPercent(earned, total), MAX_LEVEL, BreakUpLargeNumbers(earned), BreakUpLargeNumbers(total)))
 end
 
 local function HideOverlays()
@@ -228,7 +267,7 @@ local function HideOverlays()
     end
 end
 
--- Hooking -------------------------------------------------------------------
+-- Hooking --------------------------------------------------------------------
 
 -- Hooked frame -> the XP bar it belongs to. Kept here rather than flagged on
 -- Blizzard's own frames, so the addon never writes into Blizzard tables
@@ -237,6 +276,7 @@ local hookedFrames = {}
 local hoveredFrame
 
 local function ShowHorizon(frame)
+    RequestPlayedOnce()
     ShowOverlay(hookedFrames[frame])
     ShowHorizonTooltip()
 end
@@ -341,7 +381,14 @@ local function OnShiftChanged()
     end
 end
 
--- Events --------------------------------------------------------------------
+-- Redraws the 1-60 view after XP, rested XP or /played changed, if it is up.
+local function RefreshIfShowing()
+    if IsShiftKeyDown() and IsHovering(hoveredFrame) then
+        ShowHorizon(hoveredFrame)
+    end
+end
+
+-- Events ---------------------------------------------------------------------
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
@@ -349,6 +396,7 @@ events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("MODIFIER_STATE_CHANGED")
 events:RegisterEvent("PLAYER_XP_UPDATE")
 events:RegisterEvent("UPDATE_EXHAUSTION")
+events:RegisterEvent("TIME_PLAYED_MSG")
 
 events:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
@@ -364,10 +412,10 @@ events:SetScript("OnEvent", function(self, event, ...)
         if key == "LSHIFT" or key == "RSHIFT" then
             OnShiftChanged()
         end
-    else
-        -- XP or rested XP changed: refresh the 1-60 view if it is showing.
-        if IsShiftKeyDown() and IsHovering(hoveredFrame) then
-            ShowHorizon(hoveredFrame)
-        end
+    elseif event == "TIME_PLAYED_MSG" then
+        playedSeconds, playedAnsweredAt = ..., GetTime()
+        RefreshIfShowing()
+    else -- PLAYER_XP_UPDATE, UPDATE_EXHAUSTION
+        RefreshIfShowing()
     end
 end)
