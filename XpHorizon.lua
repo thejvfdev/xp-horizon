@@ -1,6 +1,7 @@
 -- XP Horizon
 -- Hold Shift while hovering the XP bar to see how much of the total XP from
--- level 1 to the level cap you have already earned.
+-- level 1 to the level cap you have already earned: the bar itself fills to
+-- show it, and the tooltip breaks it down.
 
 local ADDON_NAME = ...
 
@@ -26,6 +27,10 @@ local DEFAULT_XP_TO_NEXT_LEVEL = {
 local BRACKETS = {
     { 1, 10 }, { 10, 20 }, { 20, 30 }, { 30, 40 }, { 40, 50 }, { 50, 60 },
 }
+
+-- Art used by Forever's XP bar, so the 1-60 bar looks like the normal one.
+local BAR_BACKGROUND_ATLAS = "UI-HUD-ExperienceBar-Background"
+local BAR_FILL_ATLAS = "UI-HUD-ExperienceBar-Fill-Experience"
 
 local LABEL_COLOR = { 1, 0.82, 0 }       -- gold
 local VALUE_COLOR = { 1, 1, 1 }          -- white
@@ -94,6 +99,8 @@ local function FormatPercent(part, whole)
     return ("%.1f%%"):format(math.floor(part / whole * 1000) / 10)
 end
 
+-- Tooltip -------------------------------------------------------------------
+
 local function AddRow(tooltip, label, value, valueColor)
     local l, v = LABEL_COLOR, valueColor or VALUE_COLOR
     tooltip:AddDoubleLine(label, value, l[1], l[2], l[3], v[1], v[2], v[3])
@@ -140,32 +147,123 @@ local function ShowHorizonTooltip()
     tooltip:Show()
 end
 
+-- 1-60 bar ------------------------------------------------------------------
+
+-- While Shift is held, a copy of the XP bar filled to the 1-60 progress is
+-- drawn over Blizzard's bar. Blizzard's own fill and text are never changed,
+-- so their animations and updates carry on underneath, and hiding the copy
+-- is all it takes to go back.
+local overlays = {} -- XP bar -> its 1-60 copy
+
+local function HighestFrameLevel(frame)
+    local highest = frame:GetFrameLevel()
+    for _, child in ipairs({ frame:GetChildren() }) do
+        highest = math.max(highest, HighestFrameLevel(child))
+    end
+    return highest
+end
+
+local function CreateOverlay(bar)
+    local frameLevel = HighestFrameLevel(bar) + 1
+
+    local overlay = CreateFrame("Frame", nil, bar)
+    -- Blizzard draws the XP text at MEDIUM strata, above the rest of the bar.
+    -- Drawing the copy at MEDIUM and above every part of the bar covers the
+    -- fill, the rested-XP marker and the text.
+    overlay:SetFrameStrata("MEDIUM")
+    overlay:SetFrameLevel(frameLevel)
+    overlay:SetAllPoints(bar.StatusBar or bar)
+    overlay:Hide()
+    -- If the bar is hidden while the copy is up, keep the copy hidden when
+    -- the bar comes back.
+    overlay:SetScript("OnHide", overlay.Hide)
+
+    -- Opaque base so Blizzard's fill never shows through the background art.
+    local base = overlay:CreateTexture(nil, "BACKGROUND", nil, -8)
+    base:SetAllPoints()
+    base:SetColorTexture(0, 0, 0, 1)
+
+    local background = overlay:CreateTexture(nil, "BACKGROUND", nil, -7)
+    background:SetAllPoints()
+    background:SetAtlas(BAR_BACKGROUND_ATLAS)
+
+    local fill = overlay:CreateTexture(nil, "ARTWORK")
+    fill:SetPoint("TOPLEFT")
+    fill:SetPoint("BOTTOMLEFT")
+    fill:SetAtlas(BAR_FILL_ATLAS)
+
+    local text = overlay:CreateFontString(nil, "OVERLAY")
+    local blizzardText = bar.OverlayFrame and bar.OverlayFrame.Text
+    text:SetFontObject(blizzardText and blizzardText:GetFontObject() or "GameFontHighlightSmall")
+    text:SetPoint("CENTER", bar, "CENTER", 0, 1)
+
+    overlay.fill = fill
+    overlay.text = text
+    return overlay
+end
+
+local function ShowOverlay(bar)
+    local overlay = overlays[bar]
+    if not overlay then
+        overlay = CreateOverlay(bar)
+        overlays[bar] = overlay
+    end
+
+    local _, earned, total = GetProgress()
+    overlay:Show()
+    local fillWidth = total > 0 and overlay:GetWidth() * earned / total or 0
+    if fillWidth >= 1 then
+        overlay.fill:SetWidth(fillWidth)
+        overlay.fill:Show()
+    else
+        overlay.fill:Hide()
+    end
+    overlay.text:SetText(("Levels 1-%d: %s / %s (%s)"):format(
+        MAX_LEVEL, BreakUpLargeNumbers(earned), BreakUpLargeNumbers(total), FormatPercent(earned, total)))
+end
+
+local function HideOverlays()
+    for _, overlay in pairs(overlays) do
+        overlay:Hide()
+    end
+end
+
 -- Hooking -------------------------------------------------------------------
 
--- Frames are tracked here rather than flagged on Blizzard's own frames, so
--- the addon never writes into Blizzard tables (which would taint them).
+-- Hooked frame -> the XP bar it belongs to. Kept here rather than flagged on
+-- Blizzard's own frames, so the addon never writes into Blizzard tables
+-- (which would taint them).
 local hookedFrames = {}
 local hoveredFrame
+
+local function ShowHorizon(frame)
+    ShowOverlay(hookedFrames[frame])
+    ShowHorizonTooltip()
+end
 
 local function OnEnterHook(frame)
     hoveredFrame = frame
     if IsShiftKeyDown() then
         LearnCurrentLevel()
-        ShowHorizonTooltip()
+        ShowHorizon(frame)
     end
 end
 
 local function OnLeaveHook(frame)
+    -- Moving between the bar and its rested-XP marker can fire the new
+    -- frame's OnEnter before the old frame's OnLeave; only the frame still
+    -- under the mouse decides what is shown.
     if hoveredFrame == frame then
         hoveredFrame = nil
+        HideOverlays()
     end
 end
 
-local function HookFrame(frame)
+local function HookFrame(frame, bar)
     if not frame or hookedFrames[frame] then
         return
     end
-    hookedFrames[frame] = true
+    hookedFrames[frame] = bar
     frame:HookScript("OnEnter", OnEnterHook)
     frame:HookScript("OnLeave", OnLeaveHook)
 end
@@ -203,9 +301,9 @@ end
 
 local function HookXpBars()
     for _, bar in ipairs(FindXpBars()) do
-        HookFrame(bar)
+        HookFrame(bar, bar)
         -- The rested-XP marker is a child button with its own tooltip.
-        HookFrame(bar.ExhaustionTick)
+        HookFrame(bar.ExhaustionTick, bar)
     end
 end
 
@@ -225,15 +323,20 @@ local function RestoreDefaultTooltip(frame)
     end
 end
 
+local function IsHovering(frame)
+    return frame and frame:IsVisible() and frame:IsMouseOver()
+end
+
 local function OnShiftChanged()
     local frame = hoveredFrame
-    if not frame or not frame:IsVisible() or not frame:IsMouseOver() then
+    if not IsHovering(frame) then
         return
     end
     if IsShiftKeyDown() then
         LearnCurrentLevel()
-        ShowHorizonTooltip()
+        ShowHorizon(frame)
     else
+        HideOverlays()
         RestoreDefaultTooltip(frame)
     end
 end
@@ -262,9 +365,9 @@ events:SetScript("OnEvent", function(self, event, ...)
             OnShiftChanged()
         end
     else
-        -- XP or rested XP changed: refresh the tooltip if it is showing.
-        if hoveredFrame and IsShiftKeyDown() and hoveredFrame:IsVisible() and hoveredFrame:IsMouseOver() then
-            ShowHorizonTooltip()
+        -- XP or rested XP changed: refresh the 1-60 view if it is showing.
+        if IsShiftKeyDown() and IsHovering(hoveredFrame) then
+            ShowHorizon(hoveredFrame)
         end
     end
 end)
