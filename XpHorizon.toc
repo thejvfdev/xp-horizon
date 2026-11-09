@@ -1,7 +1,11 @@
 ## Interface: 16001
 ## Title: XP Horizon
-## Notes: Tweaks for the XP bar
+## Notes: Hold Shift over the XP bar to see your total progress to level 60, and when you will get there.
 ## Author: jvf.dev
-## Version: 1.0.0
+## Version: @project-version@
+## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## X-License: GPL-3.0-or-later
+## X-Website: https://github.com/thejvfdev/xp-horizon
 ## SavedVariables: XpHorizonDb
+
 XpHorizon.lua

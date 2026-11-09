@@ -1,4 +1,7 @@
 -- XP Horizon
+-- Copyright (C) 2026 jvf.dev
+-- Licensed under the GNU General Public License v3.0 or later; see LICENSE.
+--
 -- Hold Shift while hovering the XP bar to see how much of the total XP from
 -- level 1 to the level cap you have already earned: the bar itself fills to
 -- show it, and the tooltip adds the numbers and an estimate of the /played
