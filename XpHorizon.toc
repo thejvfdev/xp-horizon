@@ -6,6 +6,7 @@
 ## IconTexture: Interface\AddOns\XpHorizon\Media\logo.tga
 ## X-License: GPL-3.0-or-later
 ## X-Website: https://github.com/thejvfdev/xp-horizon
+## X-Curse-Project-ID: 1794082
 ## SavedVariables: XpHorizonDb
 
 XpHorizon.lua
