@@ -3,6 +3,8 @@
 ## Notes: Hold Shift over the XP bar to see your total progress to level 60, and when you will get there.
 ## Author: jvf.dev
 ## Version: @project-version@
+## Category: Quests & Leveling
+## X-Category: Quests & Leveling
 ## IconTexture: Interface\AddOns\XpHorizon\Media\logo.tga
 ## X-License: GPL-3.0-or-later
 ## X-Website: https://github.com/thejvfdev/xp-horizon
