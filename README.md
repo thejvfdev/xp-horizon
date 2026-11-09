@@ -1,26 +1,35 @@
-<p align="center">
-  <img src="Docs/img/logo.png" alt="XP Horizon logo" width="160">
-</p>
+<div align="center">
 
-# XP Horizon
+# <img src="Docs/img/logo.png" alt="" width="48" align="absmiddle">&nbsp;&nbsp;&nbsp;XP Horizon&nbsp;&nbsp;&nbsp;<img src="Docs/img/logo.png" alt="" width="48" align="absmiddle">
 
-An addon for WoW Forever that shows how far you are from level 60, counting all the XP from level 1 instead of only the current level.
+**Hold Shift over the XP bar to see your total progress to level 60, and when you will get there.**
 
-## Usage
+[![Latest release](https://img.shields.io/github/v/release/thejvfdev/xp-horizon)](https://github.com/thejvfdev/xp-horizon/releases/latest)
+[![License](https://img.shields.io/github/license/thejvfdev/xp-horizon)](LICENSE)
+![Game](https://img.shields.io/badge/game-WoW%20Forever-blue)
 
-Hold **Shift** while hovering your XP bar. Release it and the normal bar and tooltip come back.
+[**Download the latest release**](https://github.com/thejvfdev/xp-horizon/releases/latest)
 
-### The bar
+<br>
 
-The bar switches to your total progress to level 60. It fills in green with Blizzard's own bar art, and the text shows the percentage and your XP out of the total.
+<img src="Docs/img/tooltip.png" alt="The XP Horizon tooltip, showing the percentage to level 60 and the time estimate">
 
-![The XP bar showing progress to level 60](Docs/img/xp-bar.png)
+</div>
 
-### The tooltip
+## What it does
 
-The tooltip shows your percentage to level 60, your level, XP earned and remaining, and rested XP if you have any. It also estimates when you will reach 60: time played, XP per hour played, time left, and total /played at level 60.
+The XP bar shows progress through your current level. XP Horizon shows progress through the whole climb to level 60, counting all the XP from level 1.
 
-![The tooltip with the level 60 estimate](Docs/img/tooltip.png)
+1. Hover your XP bar and hold **Shift**.
+2. The bar fills in green to show your total progress, with the percentage and your XP out of the total on it.
+3. The tooltip lists your level, XP earned and remaining, rested XP, and an estimate of when you will reach 60.
+4. Let go of Shift and the normal bar and tooltip come back.
+
+<img src="Docs/img/xp-bar.png" alt="The XP bar filled in green to show progress to level 60" width="100%">
+
+### The estimate
+
+The tooltip works out your average XP per hour from your total XP and your /played time, then applies it to the XP you still need. It shows your time played, XP per hour played, the time left to 60, and your total /played at level 60.
 
 ## Installation
 
