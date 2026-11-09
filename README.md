@@ -8,7 +8,7 @@ An addon for WoW Forever that shows how far you are from level 60, counting all 
 
 ## Usage
 
-Hold **Shift** while hovering your XP bar.
+Hold **Shift** while hovering your XP bar. Release it and the normal bar and tooltip come back.
 
 ### The bar
 
@@ -21,8 +21,6 @@ The bar switches to your total progress to level 60. It fills in green with Bliz
 The tooltip shows your percentage to level 60, your level, XP earned and remaining, and rested XP if you have any. It also estimates when you will reach 60: time played, XP per hour played, time left, and total /played at level 60.
 
 ![The tooltip with the level 60 estimate](Docs/img/tooltip.png)
-
-Release Shift and the normal bar and tooltip come back.
 
 ## Installation
 
@@ -40,8 +38,6 @@ Release Shift and the normal bar and tooltip come back.
 
 - The level cap is fixed at 60.
 - The text is English only.
-
-The workflow in `.github/workflows/release.yml` builds the zip and attaches it to a GitHub release. It also uploads to CurseForge and Wago when the TOC has `X-Curse-Project-ID` or `X-Wago-ID` and the `CF_API_TOKEN` (or `CF_API_KEY`) or `WAGO_API_TOKEN` repository secret is set.
 
 ## License
 
