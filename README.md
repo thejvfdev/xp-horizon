@@ -1,6 +1,6 @@
 # XP Horizon
 
-An addon for the WoW Classic "Forever" client that shows how far you are from level 60, counting all the XP from level 1 instead of only the current level.
+An addon for WoW Forever that shows how far you are from level 60, counting all the XP from level 1 instead of only the current level.
 
 ## Usage
 
