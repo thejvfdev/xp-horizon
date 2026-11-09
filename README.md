@@ -25,7 +25,9 @@ The XP bar shows progress through your current level. XP Horizon shows progress 
 3. The tooltip lists your level, XP earned and remaining, rested XP, and an estimate of when you will reach 60.
 4. Let go of Shift and the normal bar and tooltip come back.
 
-<img src="Docs/img/xp-bar.png" alt="The XP bar filled in green to show progress to level 60" width="100%">
+<p align="center">
+  <img src="Docs/img/xp-bar-focus-0.png" alt="Part of the XP bar filled in green, with the text 38.7% to level 60 and the XP out of the total" width="357">
+</p>
 
 ### The estimate
 
