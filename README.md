@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Docs/img/logo.png" alt="XP Horizon logo" width="160">
+</p>
+
 # XP Horizon
 
 An addon for WoW Forever that shows how far you are from level 60, counting all the XP from level 1 instead of only the current level.
@@ -6,8 +10,17 @@ An addon for WoW Forever that shows how far you are from level 60, counting all 
 
 Hold **Shift** while hovering your XP bar.
 
-- **The bar** switches to your total progress to level 60. It fills in green with Blizzard's own bar art, and the text shows the percentage and your XP out of the total.
-- **The tooltip** shows your percentage to level 60, your level, XP earned and remaining, and rested XP if you have any. It also estimates when you will reach 60: time played, XP per hour played, time left, and total /played at level 60.
+### The bar
+
+The bar switches to your total progress to level 60. It fills in green with Blizzard's own bar art, and the text shows the percentage and your XP out of the total.
+
+![The XP bar showing progress to level 60](Docs/img/xp-bar.png)
+
+### The tooltip
+
+The tooltip shows your percentage to level 60, your level, XP earned and remaining, and rested XP if you have any. It also estimates when you will reach 60: time played, XP per hour played, time left, and total /played at level 60.
+
+![The tooltip with the level 60 estimate](Docs/img/tooltip.png)
 
 Release Shift and the normal bar and tooltip come back.
 
