@@ -41,17 +41,6 @@ Release Shift and the normal bar and tooltip come back.
 - The level cap is fixed at 60.
 - The text is English only.
 
-## Development
-
-Clone the repository into `Interface\AddOns\XpHorizon`. The TOC version reads `@project-version@` in the source. The release packager fills it in, so the addon list shows that text when you run straight from a checkout.
-
-To publish a release, tag the commit and push the tag:
-
-```bash
-git tag v1.0.1
-git push origin v1.0.1
-```
-
 The workflow in `.github/workflows/release.yml` builds the zip and attaches it to a GitHub release. It also uploads to CurseForge and Wago when the TOC has `X-Curse-Project-ID` or `X-Wago-ID` and the `CF_API_TOKEN` (or `CF_API_KEY`) or `WAGO_API_TOKEN` repository secret is set.
 
 ## License
