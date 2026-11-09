@@ -1,0 +1,26 @@
+name: Package and release
+
+# Runs when a version tag such as v1.0.1 is pushed.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # The packager skips a site when its token is missing, or when the TOC
+      # has no matching project ID.
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # The packager reads tags and history.
+
+      - uses: BigWigsMods/packager@v2
