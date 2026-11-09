@@ -39,7 +39,7 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-The workflow in `.github/workflows/release.yml` builds the zip and attaches it to a GitHub release. It also uploads to CurseForge and Wago when the TOC has `X-Curse-Project-ID` or `X-Wago-ID` and the `CF_API_KEY` or `WAGO_API_TOKEN` repository secret is set.
+The workflow in `.github/workflows/release.yml` builds the zip and attaches it to a GitHub release. It also uploads to CurseForge and Wago when the TOC has `X-Curse-Project-ID` or `X-Wago-ID` and the `CF_API_TOKEN` (or `CF_API_KEY`) or `WAGO_API_TOKEN` repository secret is set.
 
 ## License
 
